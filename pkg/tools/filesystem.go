@@ -2,7 +2,6 @@ package tools
 
 import (
 	"context"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,29 +12,22 @@ import (
 	"awesomeProject/pkg/models"
 )
 
-func HandleReadFile(ctx context.Context, req *mcp.CallToolRequest, args interface{}) (*mcp.CallToolResult, any, error) {
-	// Parse args to ReadFileRequest
-	argsJSON, _ := json.Marshal(args)
-	var input models.ReadFileRequest
-	if err := json.Unmarshal(argsJSON, &input); err != nil {
-		return errorResult("INVALID_REQUEST", "invalid request: "+err.Error())
-	}
-
+func HandleReadFile(ctx context.Context, req *mcp.CallToolRequest, input models.ReadFileRequest) (*mcp.CallToolResult, models.ReadFileResponse, error) {
 	if input.Path == "" {
-		return errorResult("INVALID_PATH", "path cannot be empty")
+		return errorResult("INVALID_PATH", "path cannot be empty"), models.ReadFileResponse{}, nil
 	}
 
 	absPath, err := filepath.Abs(input.Path)
 	if err != nil {
-		return errorResult("INVALID_PATH", "invalid path: "+err.Error())
+		return errorResult("INVALID_PATH", "invalid path: "+err.Error()), models.ReadFileResponse{}, nil
 	}
 
 	data, err := os.ReadFile(absPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return errorResult("FILE_NOT_FOUND", "file not found")
+			return errorResult("FILE_NOT_FOUND", "file not found"), models.ReadFileResponse{}, nil
 		}
-		return errorResult("READ_FAILED", "read failed: "+err.Error())
+		return errorResult("READ_FAILED", "read failed: "+err.Error()), models.ReadFileResponse{}, nil
 	}
 
 	// Format content with hashes
@@ -49,23 +41,18 @@ func HandleReadFile(ctx context.Context, req *mcp.CallToolRequest, args interfac
 	content := strings.Join(formattedLines, "\n")
 
 	resp := models.ReadFileResponse{Content: content}
-	return successResult(resp)
+	return nil, resp, nil
 }
 
-func HandleWriteFile(ctx context.Context, req *mcp.CallToolRequest, args interface{}) (*mcp.CallToolResult, any, error) {
-	argsJSON, _ := json.Marshal(args)
-	var input models.WriteFileRequest
-	if err := json.Unmarshal(argsJSON, &input); err != nil {
-		return errorResult("INVALID_REQUEST", "invalid request: "+err.Error())
-	}
+func HandleWriteFile(ctx context.Context, req *mcp.CallToolRequest, input models.WriteFileRequest) (*mcp.CallToolResult, models.WriteFileResponse, error) {
 
 	if input.Path == "" {
-		return errorResult("INVALID_PATH", "path cannot be empty")
+		return errorResult("INVALID_PATH", "path cannot be empty"), models.WriteFileResponse{}, nil
 	}
 
 	absPath, err := filepath.Abs(input.Path)
 	if err != nil {
-		return errorResult("INVALID_PATH", "invalid path: "+err.Error())
+		return errorResult("INVALID_PATH", "invalid path: "+err.Error()), models.WriteFileResponse{}, nil
 	}
 
 	// If content has hashes, validate and strip them
@@ -76,19 +63,19 @@ func HandleWriteFile(ctx context.Context, req *mcp.CallToolRequest, args interfa
 			// Extract hash and validate
 			extractedHash, err := hash.ExtractHashFromLine(line)
 			if err != nil {
-				return errorResult("INVALID_REQUEST", "invalid hash format: "+err.Error())
+				return errorResult("INVALID_REQUEST", "invalid hash format: "+err.Error()), models.WriteFileResponse{}, nil
 			}
 
 			parts := strings.SplitN(line, "|", 2)
 			if len(parts) != 2 {
-				return errorResult("INVALID_REQUEST", "invalid line format")
+				return errorResult("INVALID_REQUEST", "invalid line format"), models.WriteFileResponse{}, nil
 			}
 
 			lineContent := parts[1]
 
 			// Validate hash
 			if !hash.ValidateHash(lineContent, extractedHash) {
-				return errorResult("HASH_MISMATCH", "hash mismatch on line")
+				return errorResult("HASH_MISMATCH", "hash mismatch on line"), models.WriteFileResponse{}, nil
 			}
 
 			actualLines = append(actualLines, lineContent)
@@ -101,39 +88,34 @@ func HandleWriteFile(ctx context.Context, req *mcp.CallToolRequest, args interfa
 
 	// Write file
 	if err := os.WriteFile(absPath, []byte(content), 0644); err != nil {
-		return errorResult("WRITE_FAILED", "write failed: "+err.Error())
+		return errorResult("WRITE_FAILED", "write failed: "+err.Error()), models.WriteFileResponse{}, nil
 	}
 
 	resp := models.WriteFileResponse{
 		Success: true,
 		Message: "File written successfully",
 	}
-	return successResult(resp)
+	return nil, resp, nil
 }
 
-func HandleEditFile(ctx context.Context, req *mcp.CallToolRequest, args interface{}) (*mcp.CallToolResult, any, error) {
-	argsJSON, _ := json.Marshal(args)
-	var input models.EditFileRequest
-	if err := json.Unmarshal(argsJSON, &input); err != nil {
-		return errorResult("INVALID_REQUEST", "invalid request: "+err.Error())
-	}
+func HandleEditFile(ctx context.Context, req *mcp.CallToolRequest, input models.EditFileRequest) (*mcp.CallToolResult, models.EditFileResponse, error) {
 
 	if input.Path == "" {
-		return errorResult("INVALID_PATH", "path cannot be empty")
+		return errorResult("INVALID_PATH", "path cannot be empty"), models.EditFileResponse{}, nil
 	}
 
 	absPath, err := filepath.Abs(input.Path)
 	if err != nil {
-		return errorResult("INVALID_PATH", "invalid path: "+err.Error())
+		return errorResult("INVALID_PATH", "invalid path: "+err.Error()), models.EditFileResponse{}, nil
 	}
 
 	// Read current file
 	data, err := os.ReadFile(absPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return errorResult("FILE_NOT_FOUND", "file not found")
+			return errorResult("FILE_NOT_FOUND", "file not found"), models.EditFileResponse{}, nil
 		}
-		return errorResult("READ_FAILED", "read failed: "+err.Error())
+		return errorResult("READ_FAILED", "read failed: "+err.Error()), models.EditFileResponse{}, nil
 	}
 
 	lines := strings.Split(string(data), "\n")
@@ -151,7 +133,7 @@ func HandleEditFile(ctx context.Context, req *mcp.CallToolRequest, args interfac
 	}
 
 	if !found {
-		return errorResult("HASH_MISMATCH", "start hash not found")
+		return errorResult("HASH_MISMATCH", "start hash not found"), models.EditFileResponse{}, nil
 	}
 
 	found = false
@@ -165,7 +147,7 @@ func HandleEditFile(ctx context.Context, req *mcp.CallToolRequest, args interfac
 	}
 
 	if !found {
-		return errorResult("HASH_MISMATCH", "end hash not found")
+		return errorResult("HASH_MISMATCH", "end hash not found"), models.EditFileResponse{}, nil
 	}
 
 	// Replace lines
@@ -176,12 +158,12 @@ func HandleEditFile(ctx context.Context, req *mcp.CallToolRequest, args interfac
 	// Write back
 	finalContent := strings.Join(result, "\n")
 	if err := os.WriteFile(absPath, []byte(finalContent), 0644); err != nil {
-		return errorResult("EDIT_FAILED", "edit failed: "+err.Error())
+		return errorResult("EDIT_FAILED", "edit failed: "+err.Error()), models.EditFileResponse{}, nil
 	}
 
 	resp := models.EditFileResponse{
 		Success: true,
 		Message: "File edited successfully",
 	}
-	return successResult(resp)
+	return nil, resp, nil
 }

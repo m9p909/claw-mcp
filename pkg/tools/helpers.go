@@ -6,16 +6,8 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-func successResult(data interface{}) (*mcp.CallToolResult, any, error) {
-	jsonData, _ := json.Marshal(data)
-	return &mcp.CallToolResult{
-		Content: []mcp.Content{
-			&mcp.TextContent{Text: string(jsonData)},
-		},
-	}, nil, nil
-}
-
-func errorResult(code, message string) (*mcp.CallToolResult, any, error) {
+// errorResult returns an error result as a CallToolResult
+func errorResult(code, message string) *mcp.CallToolResult {
 	errResp := map[string]string{
 		"code":    code,
 		"message": message,
@@ -25,5 +17,5 @@ func errorResult(code, message string) (*mcp.CallToolResult, any, error) {
 		Content: []mcp.Content{
 			&mcp.TextContent{Text: string(jsonData)},
 		},
-	}, nil, nil
+	}
 }

@@ -2,7 +2,6 @@ package tools
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -15,15 +14,10 @@ import (
 	"awesomeProject/pkg/storage"
 )
 
-func HandleExecCommand(ctx context.Context, req *mcp.CallToolRequest, args interface{}) (*mcp.CallToolResult, any, error) {
-	argsJSON, _ := json.Marshal(args)
-	var input models.ExecCommandRequest
-	if err := json.Unmarshal(argsJSON, &input); err != nil {
-		return errorResult("INVALID_REQUEST", "invalid request: "+err.Error())
-	}
+func HandleExecCommand(ctx context.Context, req *mcp.CallToolRequest, input models.ExecCommandRequest) (*mcp.CallToolResult, models.ExecCommandResponse, error) {
 
 	if input.Command == "" {
-		return errorResult("INVALID_REQUEST", "command cannot be empty")
+		return errorResult("INVALID_REQUEST", "command cannot be empty"), models.ExecCommandResponse{}, nil
 	}
 
 	cmd := exec.Command(input.Command, input.Args...)
@@ -45,16 +39,16 @@ func HandleExecCommand(ctx context.Context, req *mcp.CallToolRequest, args inter
 		// Start command
 		stdout, err := cmd.StdoutPipe()
 		if err != nil {
-			return errorResult("EXEC_FAILED", "failed to create stdout pipe: "+err.Error())
+			return errorResult("EXEC_FAILED", "failed to create stdout pipe: "+err.Error()), models.ExecCommandResponse{}, nil
 		}
 
 		stderr, err := cmd.StderrPipe()
 		if err != nil {
-			return errorResult("EXEC_FAILED", "failed to create stderr pipe: "+err.Error())
+			return errorResult("EXEC_FAILED", "failed to create stderr pipe: "+err.Error()), models.ExecCommandResponse{}, nil
 		}
 
 		if err := cmd.Start(); err != nil {
-			return errorResult("EXEC_FAILED", "failed to start command: "+err.Error())
+			return errorResult("EXEC_FAILED", "failed to start command: "+err.Error()), models.ExecCommandResponse{}, nil
 		}
 
 		// Read output in goroutines
@@ -76,7 +70,7 @@ func HandleExecCommand(ctx context.Context, req *mcp.CallToolRequest, args inter
 			SessionID: sessionID,
 			Status:    "running",
 		}
-		return successResult(resp)
+		return nil, resp, nil
 	}
 
 	// Foreground execution
@@ -90,7 +84,7 @@ func HandleExecCommand(ctx context.Context, req *mcp.CallToolRequest, args inter
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			exitCode = exitErr.ExitCode()
 		} else {
-			return errorResult("EXEC_FAILED", "command failed: "+err.Error())
+			return errorResult("EXEC_FAILED", "command failed: "+err.Error()), models.ExecCommandResponse{}, nil
 		}
 	}
 
@@ -100,15 +94,10 @@ func HandleExecCommand(ctx context.Context, req *mcp.CallToolRequest, args inter
 		ExitCode: exitCode,
 		Status:   "completed",
 	}
-	return successResult(resp)
+	return nil, resp, nil
 }
 
-func HandleManageProcess(ctx context.Context, req *mcp.CallToolRequest, args interface{}) (*mcp.CallToolResult, any, error) {
-	argsJSON, _ := json.Marshal(args)
-	var input models.ManageProcessRequest
-	if err := json.Unmarshal(argsJSON, &input); err != nil {
-		return errorResult("INVALID_REQUEST", "invalid request: "+err.Error())
-	}
+func HandleManageProcess(ctx context.Context, req *mcp.CallToolRequest, input models.ManageProcessRequest) (*mcp.CallToolResult, models.ManageProcessResponse, error) {
 
 	switch input.Action {
 	case "list":
@@ -117,16 +106,16 @@ func HandleManageProcess(ctx context.Context, req *mcp.CallToolRequest, args int
 			Sessions: sessions,
 			Message:  "Listed all sessions",
 		}
-		return successResult(resp)
+		return nil, resp, nil
 
 	case "poll":
 		if input.SessionID == "" {
-			return errorResult("INVALID_REQUEST", "session_id required for poll action")
+			return errorResult("INVALID_REQUEST", "session_id required for poll action"), models.ManageProcessResponse{}, nil
 		}
 
 		processInfo, err := storage.GetSession(input.SessionID)
 		if err != nil {
-			return errorResult("PROCESS_NOT_FOUND", err.Error())
+			return errorResult("PROCESS_NOT_FOUND", err.Error()), models.ManageProcessResponse{}, nil
 		}
 
 		snapshot := processInfo.GetSnapshot()
@@ -134,22 +123,22 @@ func HandleManageProcess(ctx context.Context, req *mcp.CallToolRequest, args int
 			Sessions: []models.ProcessSession{snapshot},
 			Message:  "Polled session",
 		}
-		return successResult(resp)
+		return nil, resp, nil
 
 	case "send_keys":
 		if input.SessionID == "" || input.Keys == "" {
-			return errorResult("INVALID_REQUEST", "session_id and keys required for send_keys action")
+			return errorResult("INVALID_REQUEST", "session_id and keys required for send_keys action"), models.ManageProcessResponse{}, nil
 		}
-		return errorResult("INTERNAL_ERROR", "send_keys not fully implemented")
+		return errorResult("INTERNAL_ERROR", "send_keys not fully implemented"), models.ManageProcessResponse{}, nil
 
 	case "kill":
 		if input.SessionID == "" {
-			return errorResult("INVALID_REQUEST", "session_id required for kill action")
+			return errorResult("INVALID_REQUEST", "session_id required for kill action"), models.ManageProcessResponse{}, nil
 		}
-		return errorResult("INTERNAL_ERROR", "kill not fully implemented")
+		return errorResult("INTERNAL_ERROR", "kill not fully implemented"), models.ManageProcessResponse{}, nil
 
 	default:
-		return errorResult("INVALID_REQUEST", "unknown action: "+input.Action)
+		return errorResult("INVALID_REQUEST", "unknown action: "+input.Action), models.ManageProcessResponse{}, nil
 	}
 }
 

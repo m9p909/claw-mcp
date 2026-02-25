@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: claw
+  namespace: default
+spec:
+  serviceName: claw
+  replicas: 1
+  selector:
+    matchLabels:
+      app: claw
+  template:
+    metadata:
+      labels:
+        app: claw
+    spec:
+      containers:
+      - name: claw
+        image: claw:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: PORT
+          value: "8080"
+        volumeMounts:
+        - name: mcpclaw
+          mountPath: /root/.mcpclaw
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+  volumeClaimTemplates:
+  - metadata:
+      name: mcpclaw
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 10Gi

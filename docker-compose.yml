@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  claw:
+    image: claw:latest
+    container_name: claw-server
+    ports:
+      - "${PORT:-8080}:8080"
+    volumes:
+      - ~/.mcpclaw:/root/.mcpclaw
+    environment:
+      PORT: 8080
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
