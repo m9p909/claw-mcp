@@ -1,0 +1,7 @@
+export GITLAB_TOKEN="glpat-vq3FMCm6fRtAAPHfSisXMm86MQp1OmkxMmdnCw.01.1211m9d26"
+export TF_VAR_environment="proudction"
+export TF_VAR_railway_api_token="891439f1-3d1d-4720-bc8c-80a23b3e80dd"
+export OPENROUTER_API_KEY="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"
+export OPENAI_API_KEY=$OPENROUTER_API_KEY
+export PATH=~/.npm-global/bin:$PATH
+. "$HOME/.cargo/env"
