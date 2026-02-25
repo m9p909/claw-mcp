@@ -114,3 +114,10 @@ func SearchMemory(query string, limit int) ([]models.MemoryResult, error) {
 
 	return results, rows.Err()
 }
+
+// ClearMemory deletes all memories (used for testing)
+func ClearMemory() error {
+	query := `DELETE FROM memories`
+	_, err := globalDB.Exec(query)
+	return err
+}

@@ -96,3 +96,10 @@ func (pi *ProcessInfo) GetSnapshot() models.ProcessSession {
 		Stderr:    pi.Stderr,
 	}
 }
+
+// ClearSessions clears all sessions (used for testing)
+func ClearSessions() {
+	sessionsMu.Lock()
+	defer sessionsMu.Unlock()
+	sessions = make(map[string]*ProcessInfo)
+}
