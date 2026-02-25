@@ -158,8 +158,8 @@ func HandleEditFile(ctx context.Context, req *mcp.CallToolRequest, input models.
 	// Find start and end line indices by hash
 	var startIdx, endIdx int
 	found := false
-	for i, formatted := range formattedLines {
-		lineHash := hash.HashLine(formatted)
+	for i, line := range lines {
+		lineHash := hash.HashLine(line)
 		if lineHash == input.StartHash {
 			startIdx = i
 			found = true
@@ -175,8 +175,8 @@ func HandleEditFile(ctx context.Context, req *mcp.CallToolRequest, input models.
 	logger.Debug(ctx, "Start hash lookup", "result", "found", "line_num", startIdx+1)
 
 	found = false
-	for i := startIdx; i < len(formattedLines); i++ {
-		lineHash := hash.HashLine(formattedLines[i])
+	for i := startIdx; i < len(lines); i++ {
+		lineHash := hash.HashLine(lines[i])
 		if lineHash == input.EndHash {
 			endIdx = i
 			found = true

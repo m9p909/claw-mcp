@@ -58,6 +58,13 @@ Squirrels thrive in:
 - They can rotate their ankles 180 degrees, allowing them to climb head-first down trees
 - A squirrel's teeth grow throughout its entire life
 
+## Intelligence and Problem-Solving
+Squirrels are highly intelligent animals with impressive cognitive abilities:
+- They can solve complex puzzles and remember solutions
+- They employ deceptive caching strategies to fool other squirrels
+- They assess distances and adjust jumps with precision
+- They learn from experience and adapt quickly to new environments
+
 ---
 
 *Created with the claw MCP file tools*
