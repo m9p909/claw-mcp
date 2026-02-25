@@ -10,6 +10,7 @@ services:
       - ~/.mcpclaw:/root/.mcpclaw
     environment:
       PORT: 8080
+      CLAW_TOKEN: ${CLAW_TOKEN:-change-me-in-production}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 10s

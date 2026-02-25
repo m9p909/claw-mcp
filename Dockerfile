@@ -46,4 +46,9 @@ WORKDIR /.mcpclaw
 
 EXPOSE 8080
 
+# Environment variable documentation:
+# CLAW_TOKEN - Required. Bearer token for MCP endpoint authentication.
+#              Must be set before container startup.
+#              Example: docker run -e CLAW_TOKEN="your-secret-token" ...
+
 ENTRYPOINT ["/entrypoint.sh"]

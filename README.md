@@ -54,6 +54,7 @@ This creates a multi-stage Docker image based on Ubuntu 22.04 with:
 
 ```bash
 docker run -p 8080:8080 \
+  -e CLAW_TOKEN="your-secret-token" \
   -v ~/.mcpclaw:/root/.mcpclaw \
   claw:latest
 ```
@@ -61,16 +62,24 @@ docker run -p 8080:8080 \
 **Docker Compose:**
 
 ```bash
+export CLAW_TOKEN="your-secret-token"
 docker-compose up
 ```
 
-This starts the Claw server with persistent volume at `~/.mcpclaw`.
+This starts the Claw server with persistent volume at `~/.mcpclaw` and the required authentication token.
 
 ## Kubernetes Deployment
 
-For production deployments in Kubernetes, use the provided manifests:
+For production deployments in Kubernetes, create the authentication secret first, then deploy:
 
 ```bash
+# Create secret with your token
+kubectl create secret generic claw-token --from-literal=token="your-secret-token"
+
+# Or use the example manifest as a template
+kubectl apply -f kubernetes/secret-example.yaml
+
+# Deploy Claw
 kubectl apply -f kubernetes/statefulset.yaml
 kubectl apply -f kubernetes/service.yaml
 ```
@@ -78,6 +87,7 @@ kubectl apply -f kubernetes/service.yaml
 This deploys Claw as a StatefulSet with:
 - Single replica (singleton pattern)
 - Persistent 10Gi storage for workspace and database
+- Bearer token authentication via Kubernetes Secret
 - Health checks and readiness probes
 - Service exposing port 8080
 
@@ -172,6 +182,7 @@ Both directories are created automatically on server startup.
 ## Environment Variables
 
 - `PORT` - Server port (default: 8080)
+- `CLAW_TOKEN` - **Required**. Bearer token for authenticating MCP endpoint requests
 
 ## Protocol
 
@@ -184,14 +195,42 @@ Claw uses the **streamable-http** protocol from the MCP standard. The `/mcp` end
 - **Persistent Memory**: SQLite database ensures memory survives process restarts
 - **Stateless HTTP**: Uses streamable-http for protocol compatibility
 
+## Authentication
+
+Claw requires Bearer token authentication on the `/mcp` endpoint. The `/health` endpoint remains unauthenticated for container orchestration probes.
+
+### Configuration
+
+Set the `CLAW_TOKEN` environment variable before starting the server. The server will fail immediately if this variable is not set.
+
+```bash
+export CLAW_TOKEN="your-secret-token"
+./mcpclaw
+```
+
+### Using the API
+
+Include the token in the `Authorization` header:
+
+```bash
+curl -H "Authorization: Bearer your-secret-token" http://localhost:8080/mcp
+```
+
+### Health Check (No Auth Required)
+
+```bash
+curl http://localhost:8080/health
+```
+
 ## Security
 
-**Note**: This server is intentionally insecure by design. It provides:
-- No authentication or authorization
-- No resource limits or sandboxing
-- No encryption in transit
+Claw implements Bearer token authentication to protect the `/mcp` endpoint from unauthorized access. Additional considerations:
 
-**Deployment recommendation**: Place behind an API Gateway or authentication proxy for production use.
+- **Token Storage**: Use secret management systems (Kubernetes Secrets, Docker secrets, environment managers) rather than hardcoding tokens
+- **Token Rotation**: Restart the server with a new `CLAW_TOKEN` to rotate credentials
+- **No Resource Limits**: Claw does not implement rate limiting or resource quotas
+- **No Encryption in Transit**: Use TLS/HTTPS in production (via reverse proxy or load balancer)
+- **No Sandboxing**: Commands executed via `exec_command` have full permissions of the Claw process
 
 ## Development
 
