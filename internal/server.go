@@ -6,6 +6,8 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"awesomeProject/pkg/browser"
+	browsertools "awesomeProject/pkg/browser/tools"
 	"awesomeProject/pkg/tools"
 )
 
@@ -27,7 +29,10 @@ func NewServer() (*Server, error) {
 		return nil, fmt.Errorf("failed to register tools: %w", err)
 	}
 
-	log.Println("MCP Server initialized with 8 tools")
+	// Initialize BrowserManager singleton
+	_ = browser.NewBrowserManager()
+
+	log.Println("MCP Server initialized with 20 tools")
 	return s, nil
 }
 
@@ -61,6 +66,44 @@ func (s *Server) registerTools() error {
 	mcp.AddTool(s.mcpServer,
 		&mcp.Tool{Name: "memory_search", Description: "Search memory with substring matching"},
 		tools.HandleMemorySearch)
+
+	// Browser automation tools
+	mcp.AddTool(s.mcpServer,
+		&mcp.Tool{Name: "browser_navigate", Description: "Navigate to URL"},
+		browsertools.HandleBrowserNavigate)
+	mcp.AddTool(s.mcpServer,
+		&mcp.Tool{Name: "browser_snapshot", Description: "Get accessibility snapshot of page"},
+		browsertools.HandleBrowserSnapshot)
+	mcp.AddTool(s.mcpServer,
+		&mcp.Tool{Name: "browser_click", Description: "Click element on page"},
+		browsertools.HandleBrowserClick)
+	mcp.AddTool(s.mcpServer,
+		&mcp.Tool{Name: "browser_type", Description: "Type text into element"},
+		browsertools.HandleBrowserType)
+	mcp.AddTool(s.mcpServer,
+		&mcp.Tool{Name: "browser_fill_form", Description: "Fill multiple form fields"},
+		browsertools.HandleBrowserFillForm)
+	mcp.AddTool(s.mcpServer,
+		&mcp.Tool{Name: "browser_select_option", Description: "Select option from dropdown"},
+		browsertools.HandleBrowserSelectOption)
+	mcp.AddTool(s.mcpServer,
+		&mcp.Tool{Name: "browser_press_key", Description: "Press keyboard key"},
+		browsertools.HandleBrowserPressKey)
+	mcp.AddTool(s.mcpServer,
+		&mcp.Tool{Name: "browser_wait_for", Description: "Wait for text, element, or time"},
+		browsertools.HandleBrowserWaitFor)
+	mcp.AddTool(s.mcpServer,
+		&mcp.Tool{Name: "browser_handle_dialog", Description: "Handle JavaScript dialogs"},
+		browsertools.HandleBrowserHandleDialog)
+	mcp.AddTool(s.mcpServer,
+		&mcp.Tool{Name: "browser_navigate_back", Description: "Navigate backward in history"},
+		browsertools.HandleBrowserNavigateBack)
+	mcp.AddTool(s.mcpServer,
+		&mcp.Tool{Name: "browser_hover", Description: "Hover over element"},
+		browsertools.HandleBrowserHover)
+	mcp.AddTool(s.mcpServer,
+		&mcp.Tool{Name: "browser_close", Description: "Close browser"},
+		browsertools.HandleBrowserClose)
 
 	return nil
 }

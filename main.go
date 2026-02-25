@@ -13,10 +13,12 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"awesomeProject/internal"
 	"awesomeProject/internal/session"
+	pkglog "awesomeProject/pkg/log"
 )
 
 // sessionValidationMiddleware allows the MCP SDK to handle session management.
@@ -42,11 +44,12 @@ func sessionValidationMiddleware(store *session.SessionStore) func(http.Handler)
 // Key behaviors:
 // 1. /health endpoint bypasses authentication
 // 2. MCP initialization requests (no Mcp-Session-Id header) bypass bearer token check
-//    - This allows clients to establish sessions without a token
-//    - Session ID is returned in response header by the MCP SDK
+//   - This allows clients to establish sessions without a token
+//   - Session ID is returned in response header by the MCP SDK
+//
 // 3. All subsequent MCP requests with an Mcp-Session-Id header require bearer token
-//    - Client must include: "Authorization: Bearer <CLAW_TOKEN>"
-//    - Token is validated using constant-time comparison to prevent timing attacks
+//   - Client must include: "Authorization: Bearer <CLAW_TOKEN>"
+//   - Token is validated using constant-time comparison to prevent timing attacks
 func authMiddleware(token string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -108,6 +111,9 @@ func main() {
 		log.Fatalf("CLAW_TOKEN environment variable is required")
 	}
 
+	// Initialize logger
+	logger := pkglog.NewLogger()
+
 	// Initialize database
 	if err := internal.InitDB(); err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
@@ -130,9 +136,39 @@ func main() {
 		return mcpServer
 	}, nil)
 
-	// Create HTTP multiplexer
+	// Create HTTP multiplexer with request/session ID propagation
 	mux := http.NewServeMux()
-	mux.Handle("/mcp", handler)
+
+	// Wrap MCP handler with request ID and session ID tracking
+	requestIDHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+
+		// Generate request ID (UUID)
+		requestID := uuid.New().String()
+		ctx = pkglog.WithRequestID(ctx, requestID)
+
+		// Extract Mcp-Session-Id header if present
+		if sessionID := r.Header.Get("Mcp-Session-Id"); sessionID != "" {
+			ctx = pkglog.WithSessionID(ctx, sessionID)
+		}
+
+		// Add request ID to response header for client tracking
+		w.Header().Set("X-Request-ID", requestID)
+
+		// Log request details
+		logger.Info(ctx, "HTTP request",
+			"method", r.Method,
+			"path", r.URL.Path,
+			"content_length", r.ContentLength)
+
+		// Call handler with new context
+		handler.ServeHTTP(w, r.WithContext(ctx))
+	})
+
+	mux.Handle("/mcp", requestIDHandler)
+
+	// Root path handler for Claude Code's HTTP MCP client (which POSTs to root)
+	mux.Handle("/", requestIDHandler)
 
 	// Health check endpoint
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -158,7 +194,9 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	log.Printf("Starting Claw MCP Server on %s with session management enabled", addr)
+	logger.Info(context.Background(), "Starting Claw MCP Server",
+		"addr", addr,
+		"session_management", "enabled")
 
 	// Start server in goroutine
 	go func() {
@@ -172,7 +210,7 @@ func main() {
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	<-sigChan
 
-	log.Println("Shutting down server...")
+	logger.Info(context.Background(), "Shutting down server")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	httpServer.Shutdown(ctx)
