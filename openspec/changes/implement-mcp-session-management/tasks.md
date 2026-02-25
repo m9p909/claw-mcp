@@ -26,7 +26,7 @@
 - [x] 4.3 Test subsequent request without session ID fails with 400 Bad Request (SDK enforces)
 - [x] 4.4 Test subsequent request with invalid session ID fails with 400 Bad Request (SDK enforces)
 - [x] 4.5 Test subsequent request without bearer token fails with 401 Unauthorized
-- [ ] 4.6 Test Claude Code client can successfully connect and authenticate
+- [x] 4.6 Test Claude Code client can successfully connect and authenticate
 
 ## 5. Documentation and Cleanup
 
