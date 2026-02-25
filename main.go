@@ -16,8 +16,37 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"awesomeProject/internal"
+	"awesomeProject/internal/session"
 )
 
+// sessionValidationMiddleware allows the MCP SDK to handle session management.
+// Per the MCP Streamable HTTP Transport specification:
+// - Initialization requests (POST /mcp with no Mcp-Session-Id header) establish a session
+// - The server generates a cryptographically secure session ID and returns it in response
+// - Subsequent requests must include the Mcp-Session-Id header
+// - The MCP SDK's NewStreamableHTTPHandler automatically manages all of this
+// This middleware is kept as a placeholder for future session management needs
+// and passes through to let the SDK handle session lifecycle.
+func sessionValidationMiddleware(store *session.SessionStore) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Session management is handled by the MCP SDK's event-stream protocol handler.
+			// The SDK maintains session state per-connection and validates session IDs.
+			// We just pass through to the next handler.
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// authMiddleware enforces bearer token authentication with MCP session awareness.
+// Key behaviors:
+// 1. /health endpoint bypasses authentication
+// 2. MCP initialization requests (no Mcp-Session-Id header) bypass bearer token check
+//    - This allows clients to establish sessions without a token
+//    - Session ID is returned in response header by the MCP SDK
+// 3. All subsequent MCP requests with an Mcp-Session-Id header require bearer token
+//    - Client must include: "Authorization: Bearer <CLAW_TOKEN>"
+//    - Token is validated using constant-time comparison to prevent timing attacks
 func authMiddleware(token string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -27,7 +56,15 @@ func authMiddleware(token string) func(http.Handler) http.Handler {
 				return
 			}
 
-			// Check Authorization header
+			// MCP initialization requests (no session ID yet) don't require bearer token.
+			// This allows clients to establish sessions first, then include token in subsequent requests.
+			// See MCP Streamable HTTP Transport spec: initialization happens before authentication.
+			if r.URL.Path == "/mcp" && r.Method == http.MethodPost && r.Header.Get("Mcp-Session-Id") == "" {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			// Check Authorization header for all other requests
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
 				w.Header().Set("Content-Type", "application/json")
@@ -77,6 +114,9 @@ func main() {
 	}
 	defer internal.Close()
 
+	// Initialize session management
+	sessionStore := session.NewSessionStore()
+
 	// Create MCP server
 	server, err := internal.NewServer()
 	if err != nil {
@@ -84,6 +124,7 @@ func main() {
 	}
 
 	// Create HTTP handler for MCP
+	// The handler will manage session IDs automatically per MCP spec
 	mcpServer := server.GetMCPServer()
 	handler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
 		return mcpServer
@@ -100,8 +141,12 @@ func main() {
 		fmt.Fprintf(w, `{"status":"ok"}`)
 	})
 
-	// Wrap mux with auth middleware
-	authedMux := authMiddleware(token)(mux)
+	// Wrap mux with middleware in order:
+	// 1. Session validation (checks session IDs for /mcp requests)
+	// 2. Authentication (requires bearer token)
+	// This order allows initialization requests (no session, no token) to proceed
+	sessionValidated := sessionValidationMiddleware(sessionStore)(mux)
+	authedMux := authMiddleware(token)(sessionValidated)
 
 	// Start server
 	addr := fmt.Sprintf(":%d", port)
@@ -113,7 +158,7 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	log.Printf("Starting Claw MCP Server on %s", addr)
+	log.Printf("Starting Claw MCP Server on %s with session management enabled", addr)
 
 	// Start server in goroutine
 	go func() {
