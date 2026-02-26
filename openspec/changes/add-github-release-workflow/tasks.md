@@ -21,7 +21,7 @@
 - [x] 3.2 Verify release is created with correct version tag format
 - [x] 3.3 Verify binary asset is attached to release
 - [x] 3.4 Download binary using curl and verify it's executable
-- [ ] 3.5 Test that subsequent push updates release with new binary
+- [x] 3.5 Test that subsequent push updates release with new binary
 
 ## 4. Documentation
 
