@@ -1,0 +1,58 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.25'
+
+      - name: Build binary
+        run: |
+          go build -ldflags="-s -w" -o mcpclaw-linux-amd64 .
+
+      - name: Compute version tag
+        id: version
+        run: |
+          DATE=$(date +%Y.%m.%d)
+          GIT_HASH=$(git rev-parse --short HEAD)
+          VERSION="v${DATE}-${GIT_HASH}"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Version: ${VERSION}"
+
+      - name: Delete existing release from today
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          DATE=$(date +%Y.%m.%d)
+          RELEASE_TAG="v${DATE}-"
+          RELEASES=$(gh release list --json tagName,isLatest -q '.[].tagName' || echo "")
+          for tag in $RELEASES; do
+            if [[ $tag == ${RELEASE_TAG}* ]]; then
+              echo "Deleting release: $tag"
+              gh release delete "$tag" --yes || true
+            fi
+          done
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.version.outputs.version }}" \
+            mcpclaw-linux-amd64 \
+            --title "Release ${{ steps.version.outputs.version }}" \
+            --notes "Automated release from commit $(git rev-parse --short HEAD)"
