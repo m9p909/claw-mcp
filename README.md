@@ -59,14 +59,24 @@ docker run -p 8080:8080 \
   claw:latest
 ```
 
-**Docker Compose:**
+**Docker Compose (Development with TLS):**
 
 ```bash
 export CLAW_TOKEN="your-secret-token"
 docker-compose up
 ```
 
-This starts the Claw server with persistent volume at `~/.mcpclaw` and the required authentication token.
+This starts Claw with Caddy reverse proxy providing TLS encryption on localhost. For production with Let's Encrypt, see [TLS Setup Guide](TLS_SETUP.md).
+
+**Docker Compose (Production with Let's Encrypt):**
+
+```bash
+export DOMAIN=claw.example.com
+export CLAW_TOKEN=$(openssl rand -base64 32)
+docker-compose -f docker-compose.prod.yml up
+```
+
+For detailed TLS setup instructions, see [TLS Setup Guide](TLS_SETUP.md).
 
 ## Kubernetes Deployment
 
@@ -90,8 +100,9 @@ This deploys Claw as a StatefulSet with:
 - Bearer token authentication via Kubernetes Secret
 - Health checks and readiness probes
 - Service exposing port 8080
+- TLS/HTTPS via Ingress controller
 
-See [kubernetes/README.md](kubernetes/README.md) for detailed instructions.
+See [kubernetes/README.md](kubernetes/README.md) for detailed instructions, including TLS configuration with cert-manager and Let's Encrypt.
 
 ## API Documentation
 
@@ -229,7 +240,7 @@ Claw implements Bearer token authentication to protect the `/mcp` endpoint from 
 - **Token Storage**: Use secret management systems (Kubernetes Secrets, Docker secrets, environment managers) rather than hardcoding tokens
 - **Token Rotation**: Restart the server with a new `CLAW_TOKEN` to rotate credentials
 - **No Resource Limits**: Claw does not implement rate limiting or resource quotas
-- **No Encryption in Transit**: Use TLS/HTTPS in production (via reverse proxy or load balancer)
+- **Encryption in Transit**: Docker Compose deployments include Caddy for TLS/HTTPS. See [TLS Setup Guide](TLS_SETUP.md) for production configuration with Let's Encrypt. For Kubernetes, use your Ingress controller.
 - **No Sandboxing**: Commands executed via `exec_command` have full permissions of the Claw process
 
 ## Development

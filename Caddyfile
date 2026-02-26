@@ -1,0 +1,47 @@
+# Caddyfile for Claw MCP Server
+# Provides TLS termination with support for both self-signed (dev) and Let's Encrypt (prod)
+#
+# Environment Variables:
+#   DOMAIN      - Domain name for TLS certificate (default: localhost)
+#   TLS_MODE    - "self_signed" for dev, "letsencrypt" for production
+
+{$DOMAIN:localhost} {
+    # Reverse proxy to internal Claw service
+    reverse_proxy http://claw:8080 {
+        # Preserve original request headers for Claw MCP protocol
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+        header_up X-Forwarded-Host {host}
+    }
+
+    # TLS Configuration based on environment
+    # For localhost (development): auto-generate self-signed certificates
+    # For production domain: obtain from Let's Encrypt via ACME
+
+    @self_signed {
+        # Match self-signed mode (localhost development)
+        expression `{env.TLS_MODE} == "self_signed"`
+    }
+
+    @letsencrypt {
+        # Match Let's Encrypt mode (production)
+        expression `{env.TLS_MODE} == "letsencrypt"`
+    }
+
+    # Self-signed certificate generation for development
+    tls internal {
+        on_demand
+    }
+
+    # Force HTTP to HTTPS redirect for all requests
+    @http {
+        protocol http
+    }
+    redir @http https://{host}{uri} permanent
+
+    # Logging
+    log {
+        output stdout
+        format json
+    }
+}

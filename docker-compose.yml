@@ -1,19 +1,56 @@
 version: '3.8'
 
+# Development Docker Compose configuration with self-signed TLS via Caddy
+# For production with Let's Encrypt, use: docker-compose -f docker-compose.prod.yml
+
 services:
+  caddy:
+    image: caddy:latest
+    container_name: claw-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      DOMAIN: localhost
+      TLS_MODE: self_signed
+    depends_on:
+      - claw
+    healthcheck:
+      test: ["CMD", "curl", "-f", "https://localhost/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - claw-network
+
   claw:
     image: claw:latest
     container_name: claw-server
-    ports:
-      - "${PORT:-8080}:8080"
+    # Note: Port 8080 is NOT exposed to host. Only Caddy exposes ports (80/443).
+    # This ensures all traffic goes through TLS.
     volumes:
       - ~/.mcpclaw:/root/.mcpclaw
     environment:
       PORT: 8080
-      CLAW_TOKEN: ${CLAW_TOKEN:-change-me-in-production}
+      CLAW_TOKEN: ${CLAW_TOKEN:-change-me-in-development}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 10s
       timeout: 5s
       retries: 3
       start_period: 10s
+    networks:
+      - claw-network
+
+networks:
+  claw-network:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:

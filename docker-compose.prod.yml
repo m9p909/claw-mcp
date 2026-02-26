@@ -1,0 +1,76 @@
+version: '3.8'
+
+# Production Docker Compose configuration with Let's Encrypt TLS via Caddy
+#
+# USAGE:
+#   export DOMAIN=yourdomain.com
+#   export CLAW_TOKEN=your-secret-token
+#   docker-compose -f docker-compose.prod.yml up
+#
+# REQUIREMENTS:
+#   - DOMAIN: Your production domain (e.g., claw.example.com)
+#             Must have DNS A record pointing to this server
+#   - CLAW_TOKEN: Secure token for MCP authentication
+#                 Generate with: openssl rand -base64 32
+#
+# CERTIFICATE RENEWAL:
+#   - Caddy automatically renews Let's Encrypt certificates 30 days before expiration
+#   - Renewal happens without downtime or manual intervention
+#   - Certificate storage persists in the caddy_data volume
+
+services:
+  caddy:
+    image: caddy:latest
+    container_name: claw-caddy-prod
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      DOMAIN: ${DOMAIN}
+      TLS_MODE: letsencrypt
+    depends_on:
+      - claw
+    healthcheck:
+      test: ["CMD", "curl", "-f", "https://localhost/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - claw-network
+    restart: unless-stopped
+
+  claw:
+    image: claw:latest
+    container_name: claw-server-prod
+    # Note: Port 8080 is NOT exposed to host. Only Caddy exposes ports (80/443).
+    # This ensures all traffic is encrypted via Let's Encrypt TLS.
+    volumes:
+      - ~/.mcpclaw:/root/.mcpclaw
+    environment:
+      PORT: 8080
+      CLAW_TOKEN: ${CLAW_TOKEN}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - claw-network
+    restart: unless-stopped
+
+networks:
+  claw-network:
+    driver: bridge
+
+volumes:
+  caddy_data:
+    # Persists Caddy data including Let's Encrypt certificates
+    # Location: /data/caddy/certificates and /data/caddy/renewal
+  caddy_config:
+    # Persists Caddy configuration

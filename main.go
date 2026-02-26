@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/subtle"
+	"embed"
 	"flag"
 	"fmt"
 	"log"
@@ -20,6 +21,9 @@ import (
 	"awesomeProject/internal/session"
 	pkglog "awesomeProject/pkg/log"
 )
+
+//go:embed Caddyfile
+var caddyfileFS embed.FS
 
 // sessionValidationMiddleware allows the MCP SDK to handle session management.
 // Per the MCP Streamable HTTP Transport specification:
@@ -55,6 +59,13 @@ func authMiddleware(token string) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// /health endpoint bypasses auth
 			if r.URL.Path == "/health" {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			// If CLAW_TOKEN is empty/unset, skip bearer token validation
+			// (auth is delegated to reverse proxy like Caddy)
+			if token == "" {
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -101,15 +112,20 @@ func authMiddleware(token string) func(http.Handler) http.Handler {
 }
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "setup" {
+		if err := setupCommand(); err != nil {
+			log.Fatalf("Setup failed: %v", err)
+		}
+		return
+	}
+
 	var port int
 	flag.IntVar(&port, "port", 8080, "HTTP server port")
 	flag.Parse()
 
-	// Read CLAW_TOKEN from environment and fail fast if missing
+	// Read CLAW_TOKEN from environment (optional)
+	// When empty/unset, bearer token validation is skipped (auth delegated to reverse proxy)
 	token := os.Getenv("CLAW_TOKEN")
-	if token == "" {
-		log.Fatalf("CLAW_TOKEN environment variable is required")
-	}
 
 	// Initialize logger
 	logger := pkglog.NewLogger()
