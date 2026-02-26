@@ -13,6 +13,30 @@ Claw is a singleton MCP server designed for collaboration between multiple AI ag
 
 All agents connect to the same shared workspace at `~/.mcpclaw/workspace`, enabling real-time collaboration.
 
+## Installation
+
+### Quick Install from Release
+
+Download the latest precompiled binary for Linux x86-64:
+
+```bash
+# Get the latest release version
+LATEST=$(curl -s https://api.github.com/repos/m9p909/claw-mcp/releases/latest | jq -r '.tag_name')
+
+# Download and install
+curl -L "https://github.com/m9p909/claw-mcp/releases/download/${LATEST}/mcpclaw-linux-amd64" -o mcpclaw
+chmod +x mcpclaw
+./mcpclaw -port 8080
+```
+
+Or directly with a specific version (example: `v2026.02.26-abc1234`):
+
+```bash
+curl -L https://github.com/m9p909/claw-mcp/releases/download/v2026.02.26-abc1234/mcpclaw-linux-amd64 -o mcpclaw
+chmod +x mcpclaw
+./mcpclaw
+```
+
 ## Building from Source
 
 ### Prerequisites
