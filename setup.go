@@ -145,10 +145,10 @@ func customizeCaddyfile(content string, domain string, passwordHash string) stri
     }
 `, passwordHash)
 
-	// Find reverse_proxy closing brace and insert after it
-	reverseProxyEnd := strings.Index(content, "    }\n\n    # TLS Configuration")
+	// Find reverse_proxy line and insert after it
+	reverseProxyEnd := strings.Index(content, "reverse_proxy {$UPSTREAM:localhost:8080}\n\n    # TLS Configuration")
 	if reverseProxyEnd != -1 {
-		insertPos := reverseProxyEnd + len("    }")
+		insertPos := reverseProxyEnd + len("reverse_proxy {$UPSTREAM:localhost:8080}")
 		content = content[:insertPos] + basicAuthDirective + content[insertPos:]
 	}
 

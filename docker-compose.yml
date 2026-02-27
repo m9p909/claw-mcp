@@ -16,6 +16,7 @@ services:
       - caddy_config:/config
     environment:
       DOMAIN: localhost
+      UPSTREAM: claw:8080
       TLS_MODE: self_signed
     depends_on:
       - claw
