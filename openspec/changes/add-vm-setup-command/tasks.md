@@ -36,7 +36,7 @@
 
 - [x] 6.1 Extract embedded Caddyfile from embedded FS
 - [x] 6.2 Replace {$DOMAIN} placeholder with user-provided domain
-- [x] 6.3 Add basic_auth directive: `basic_auth /mcp/* { admin $bcrypt_hash }`
+- [x] 6.3 Add basicauth directive: `basicauth /mcp/* { admin $bcrypt_hash }` (Caddy v2.6.2 and earlier)
 - [x] 6.4 Verify customized Caddyfile contains all expected directives
 - [x] 6.5 Check if /etc/caddy/Caddyfile already exists (error if it does, prevent overwrite)
 - [x] 6.6 Write customized Caddyfile to /etc/caddy/Caddyfile with appropriate permissions

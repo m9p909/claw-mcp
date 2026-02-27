@@ -136,11 +136,11 @@ func customizeCaddyfile(content string, domain string, passwordHash string) stri
 	// Replace {$DOMAIN} placeholder with user domain
 	content = strings.ReplaceAll(content, "{$DOMAIN:localhost}", domain)
 
-	// Add basic_auth directive for /mcp endpoint
+	// Add basicauth directive for /mcp endpoint (Caddy v2.6.2 uses 'basicauth', not 'basic_auth')
 	// Insert after the reverse_proxy block
 	basicAuthDirective := fmt.Sprintf(`
     # Basic authentication for /mcp endpoint
-    basic_auth /mcp/* {
+    basicauth /mcp/* {
         admin %s
     }
 `, passwordHash)
