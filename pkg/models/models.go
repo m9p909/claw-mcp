@@ -233,6 +233,41 @@ type BrowserCloseResponse struct {
 	Message string `json:"message" jsonschema:"description,Status or error message"`
 }
 
+// Agent Skills Models
+
+type SkillMetadata struct {
+	Name           string            `json:"name" jsonschema:"description,Skill name (lowercase alphanumeric and hyphens)"`
+	Description    string            `json:"description" jsonschema:"description,Skill description (1-1024 characters)"`
+	License        string            `json:"license,omitempty" jsonschema:"description,License name or reference"`
+	Compatibility  string            `json:"compatibility,omitempty" jsonschema:"description,Environment requirements"`
+	AllowedTools   string            `json:"allowed_tools,omitempty" jsonschema:"description,Space-delimited list of pre-approved tools"`
+	Metadata       map[string]string `json:"metadata,omitempty" jsonschema:"description,Arbitrary key-value metadata"`
+	SkillDirectory string            `json:"skill_directory" jsonschema:"description,Absolute path to skill directory"`
+}
+
+type ListSkillsRequest struct{}
+
+type ListSkillsResponse struct {
+	Skills  []SkillMetadata `json:"skills" jsonschema:"description,List of valid skills"`
+	Message string          `json:"message,omitempty" jsonschema:"description,Status message"`
+}
+
+type GetSkillRequest struct {
+	Name string `json:"name" jsonschema:"description,Name of skill to retrieve"`
+}
+
+type GetSkillResponse struct {
+	Name           string            `json:"name" jsonschema:"description,Skill name"`
+	Description    string            `json:"description" jsonschema:"description,Skill description"`
+	License        string            `json:"license,omitempty" jsonschema:"description,License"`
+	Compatibility  string            `json:"compatibility,omitempty" jsonschema:"description,Environment requirements"`
+	AllowedTools   string            `json:"allowed_tools,omitempty" jsonschema:"description,Space-delimited list of pre-approved tools"`
+	Metadata       map[string]string `json:"metadata,omitempty" jsonschema:"description,Arbitrary key-value metadata"`
+	SkillDirectory string            `json:"skill_directory" jsonschema:"description,Absolute path to skill directory"`
+	Body           string            `json:"body" jsonschema:"description,Markdown body of SKILL.md after frontmatter"`
+	Message        string            `json:"message,omitempty" jsonschema:"description,Status or error message"`
+}
+
 // Error Response
 
 type ErrorResponse struct {

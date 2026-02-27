@@ -32,7 +32,7 @@ func NewServer() (*Server, error) {
 	// Initialize BrowserManager singleton
 	_ = browser.NewBrowserManager()
 
-	log.Println("MCP Server initialized with 20 tools")
+	log.Println("MCP Server initialized with 22 tools")
 	return s, nil
 }
 
@@ -104,6 +104,14 @@ func (s *Server) registerTools() error {
 	mcp.AddTool(s.mcpServer,
 		&mcp.Tool{Name: "browser_close", Description: "Close browser"},
 		browsertools.HandleBrowserClose)
+
+	// Agent skills tools
+	mcp.AddTool(s.mcpServer,
+		&mcp.Tool{Name: "list_skills", Description: "List all available Agent Skills"},
+		tools.HandleListSkills)
+	mcp.AddTool(s.mcpServer,
+		&mcp.Tool{Name: "get_skill", Description: "Retrieve a specific Agent Skill with full content"},
+		tools.HandleGetSkill)
 
 	return nil
 }
