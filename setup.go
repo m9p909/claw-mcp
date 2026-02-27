@@ -138,17 +138,17 @@ func customizeCaddyfile(content string, domain string, passwordHash string) stri
 
 	// Add basic_auth directive for /mcp endpoint
 	// Insert after the reverse_proxy block
-	basicAuthDirective := fmt.Sprintf(`    # Basic authentication for /mcp endpoint
+	basicAuthDirective := fmt.Sprintf(`
+    # Basic authentication for /mcp endpoint
     basic_auth /mcp/* {
         admin %s
     }
-
 `, passwordHash)
 
-	// Insert after the reverse_proxy block (after the closing brace and blank line)
-	reverseProxyEnd := strings.Index(content, "    }\n\n")
+	// Find reverse_proxy closing brace and insert after it
+	reverseProxyEnd := strings.Index(content, "    }\n\n    # TLS Configuration")
 	if reverseProxyEnd != -1 {
-		insertPos := reverseProxyEnd + len("    }\n")
+		insertPos := reverseProxyEnd + len("    }")
 		content = content[:insertPos] + basicAuthDirective + content[insertPos:]
 	}
 
