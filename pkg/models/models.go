@@ -233,6 +233,69 @@ type BrowserCloseResponse struct {
 	Message string `json:"message" jsonschema:"description,Status or error message"`
 }
 
+// File Search Tool Models
+
+type SearchFileRequest struct {
+	Path    string `json:"path" jsonschema:"description,Absolute or relative path to search"`
+	Query   string `json:"query" jsonschema:"description,Search query (literal string or regex pattern)"`
+	Regex   bool   `json:"regex" jsonschema:"description,Treat query as regex pattern"`
+	Workers int    `json:"workers" jsonschema:"description,Number of worker goroutines (default: 128)"`
+}
+
+type SearchFileResult struct {
+	File    string `json:"file" jsonschema:"description,File path containing match"`
+	Line    int    `json:"line" jsonschema:"description,Line number (0 for binary files)"`
+	Hash    string `json:"hash" jsonschema:"description,CRC32 hash of line content"`
+	Content string `json:"content" jsonschema:"description,Matched line content"`
+}
+
+type SearchFileResponse struct {
+	Results []SearchFileResult `json:"results" jsonschema:"description,Search results with hashes"`
+	Message string             `json:"message,omitempty" jsonschema:"description,Status or error message"`
+}
+
+type FindFilesRequest struct {
+	Path    string `json:"path" jsonschema:"description,Root directory to search"`
+	Pattern string `json:"pattern" jsonschema:"description,Glob pattern to match (e.g., *.go, test_*)"`
+}
+
+type FindFilesResult struct {
+	Path     string `json:"path" jsonschema:"description,Absolute file path"`
+	Size     int64  `json:"size" jsonschema:"description,File size in bytes"`
+	Modified int64  `json:"modified" jsonschema:"description,Unix timestamp of last modification"`
+}
+
+type FindFilesResponse struct {
+	Files   []FindFilesResult `json:"files" jsonschema:"description,Matched files"`
+	Message string            `json:"message,omitempty" jsonschema:"description,Status or error message"`
+}
+
+type ListDirectoryRequest struct {
+	Path string `json:"path" jsonschema:"description,Directory path to list"`
+}
+
+type ListDirectoryEntry struct {
+	Name        string `json:"name" jsonschema:"description,File or directory name"`
+	Type        string `json:"type" jsonschema:"description,Entry type: file or dir"`
+	Size        int64  `json:"size" jsonschema:"description,Size in bytes (0 for directories)"`
+	Permissions string `json:"permissions" jsonschema:"description,File permissions string"`
+}
+
+type ListDirectoryResponse struct {
+	Entries []ListDirectoryEntry `json:"entries" jsonschema:"description,Directory contents"`
+	Message string               `json:"message,omitempty" jsonschema:"description,Status or error message"`
+}
+
+type TreeDirectoryRequest struct {
+	Path     string `json:"path" jsonschema:"description,Root directory for tree"`
+	MaxDepth int    `json:"max_depth" jsonschema:"description,Maximum depth (0 = unlimited)"`
+}
+
+type TreeDirectoryResponse struct {
+	Tree    string `json:"tree" jsonschema:"description,ASCII tree visualization"`
+	Message string `json:"message,omitempty" jsonschema:"description,Status or error message"`
+}
+
 // Agent Skills Models
 
 type SkillMetadata struct {

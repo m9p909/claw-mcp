@@ -32,7 +32,7 @@ func NewServer() (*Server, error) {
 	// Initialize BrowserManager singleton
 	_ = browser.NewBrowserManager()
 
-	log.Println("MCP Server initialized with 22 tools")
+	log.Println("MCP Server initialized with 26 tools")
 	return s, nil
 }
 
@@ -112,6 +112,20 @@ func (s *Server) registerTools() error {
 	mcp.AddTool(s.mcpServer,
 		&mcp.Tool{Name: "get_skill", Description: "Retrieve a specific Agent Skill with full content"},
 		tools.HandleGetSkill)
+
+	// File search tools
+	mcp.AddTool(s.mcpServer,
+		&mcp.Tool{Name: "search_file", Description: "Search files with literal or regex patterns, returns results with line hashes"},
+		tools.HandleSearchFile)
+	mcp.AddTool(s.mcpServer,
+		&mcp.Tool{Name: "find_files", Description: "Find files matching glob patterns recursively"},
+		tools.HandleFindFiles)
+	mcp.AddTool(s.mcpServer,
+		&mcp.Tool{Name: "list_directory", Description: "List directory contents with metadata"},
+		tools.HandleListDirectory)
+	mcp.AddTool(s.mcpServer,
+		&mcp.Tool{Name: "tree_directory", Description: "Generate ASCII tree visualization of directory structure"},
+		tools.HandleTreeDirectory)
 
 	return nil
 }
