@@ -331,6 +331,15 @@ type GetSkillResponse struct {
 	Message        string            `json:"message,omitempty" jsonschema:"description,Status or error message"`
 }
 
+// Agent Context Models
+
+type GetAgentContextRequest struct{}
+
+type GetAgentContextResponse struct {
+	Content string `json:"content" jsonschema:"description,Full agent context documentation"`
+	Message string `json:"message,omitempty" jsonschema:"description,Status or error message"`
+}
+
 // Error Response
 
 type ErrorResponse struct {

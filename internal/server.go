@@ -32,7 +32,7 @@ func NewServer() (*Server, error) {
 	// Initialize BrowserManager singleton
 	_ = browser.NewBrowserManager()
 
-	log.Println("MCP Server initialized with 26 tools")
+	log.Println("MCP Server initialized with 27 tools")
 	return s, nil
 }
 
@@ -112,6 +112,11 @@ func (s *Server) registerTools() error {
 	mcp.AddTool(s.mcpServer,
 		&mcp.Tool{Name: "get_skill", Description: "Retrieve a specific Agent Skill with full content"},
 		tools.HandleGetSkill)
+
+	// Agent context tool
+	mcp.AddTool(s.mcpServer,
+		&mcp.Tool{Name: "get_agent_context", Description: "Claw is a personal agent MCP server in real Linux. Be professional, concise, token-efficient. Skills at ~/.mcpclaw/skills/ (use list_skills/get_skill). Call for full guide."},
+		tools.HandleGetAgentContext)
 
 	// File search tools
 	mcp.AddTool(s.mcpServer,
