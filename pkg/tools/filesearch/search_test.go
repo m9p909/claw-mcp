@@ -104,9 +104,6 @@ func TestSearchBinaryFile(t *testing.T) {
 	if results[0].Line != 0 {
 		t.Errorf("Binary file match should have line 0, got %d", results[0].Line)
 	}
-	if results[0].Hash != "" {
-		t.Errorf("Binary file match should have empty hash, got %q", results[0].Hash)
-	}
 }
 
 func TestSearchDirectory(t *testing.T) {

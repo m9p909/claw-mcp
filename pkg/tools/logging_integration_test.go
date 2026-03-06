@@ -74,15 +74,15 @@ func TestLogging_FileEditOperation(t *testing.T) {
 
 	input := models.EditFileRequest{
 		Path:       tmpFile,
-		StartHash:  "somehash1",
-		EndHash:    "somehash2",
+		StartLine:  1,
+		EndLine:    100,
 		NewContent: "new content",
 	}
 	toolResult, _, _ := HandleEditFile(context.Background(), nil, input)
 
-	// Edit will fail due to hash mismatch, but logging should still occur
+	// Edit will fail due to out-of-range, but logging should still occur
 	if toolResult == nil {
-		t.Fatalf("expected error for hash mismatch")
+		t.Fatalf("expected error for invalid range")
 	}
 }
 

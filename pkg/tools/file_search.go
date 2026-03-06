@@ -68,7 +68,6 @@ func HandleSearchFile(ctx context.Context, req *mcp.CallToolRequest, input model
 			results = append(results, models.SearchFileResult{
 				File:    result.File,
 				Line:    result.Line,
-				Hash:    result.Hash,
 				Content: result.Content,
 			})
 		case err := <-done:
@@ -81,7 +80,6 @@ func HandleSearchFile(ctx context.Context, req *mcp.CallToolRequest, input model
 				results = append(results, models.SearchFileResult{
 					File:    result.File,
 					Line:    result.Line,
-					Hash:    result.Hash,
 					Content: result.Content,
 				})
 			}

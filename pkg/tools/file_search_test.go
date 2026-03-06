@@ -147,7 +147,7 @@ func TestHandleSearchFile_SuccessfulSearch(t *testing.T) {
 	if resp.Results[0].Line != 1 {
 		t.Errorf("Expected line 1, got %d", resp.Results[0].Line)
 	}
-	if resp.Results[0].Hash == "" {
-		t.Error("Result should have hash")
+	if resp.Results[0].Content == "" {
+		t.Error("Result should have content")
 	}
 }

@@ -8,8 +8,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"sync"
-
-	"awesomeProject/pkg/hash"
 )
 
 const (
@@ -26,7 +24,6 @@ type SearchOptions struct {
 type SearchResult struct {
 	File    string
 	Line    int
-	Hash    string
 	Content string
 }
 
@@ -133,21 +130,15 @@ func processFile(job *searchJob, results chan<- SearchResult) {
 				results <- SearchResult{
 					File:    job.path,
 					Line:    0,
-					Hash:    "",
 					Content: fmt.Sprintf("Binary file %s matches", job.path),
 				}
 				return
 			}
 
-			// Calculate hash from actual line content
-			lineContent := string(text)
-			lineHash := hash.HashLine(lineContent)
-
 			results <- SearchResult{
 				File:    job.path,
 				Line:    lineNum,
-				Hash:    lineHash,
-				Content: lineContent,
+				Content: string(text),
 			}
 		}
 		lineNum++

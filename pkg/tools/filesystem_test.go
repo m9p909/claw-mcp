@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,7 +10,6 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"awesomeProject/pkg/hash"
 	"awesomeProject/pkg/models"
 )
 
@@ -33,10 +33,9 @@ func TestHandleReadFile_ExistingFile(t *testing.T) {
 		t.Errorf("expected 3 lines, got %d", len(lines))
 	}
 
-	// Validate format: "1:hash|content"
-	validateLineFormat(t, lines[0], "line1")
-	validateLineFormat(t, lines[1], "line2")
-	validateLineFormat(t, lines[2], "line3")
+	validateLineFormat(t, lines[0], 1, "line1")
+	validateLineFormat(t, lines[1], 2, "line2")
+	validateLineFormat(t, lines[2], 3, "line3")
 }
 
 // Test ReadFile: Empty file
@@ -58,6 +57,7 @@ func TestHandleReadFile_EmptyFile(t *testing.T) {
 	if len(lines) != 1 {
 		t.Errorf("expected 1 line (empty), got %d", len(lines))
 	}
+	validateLineFormat(t, lines[0], 1, "")
 }
 
 // Test ReadFile: File with empty lines
@@ -80,9 +80,9 @@ func TestHandleReadFile_EmptyLines(t *testing.T) {
 		t.Errorf("expected 3 lines, got %d", len(lines))
 	}
 
-	validateLineFormat(t, lines[0], "line1")
-	validateLineFormat(t, lines[1], "")
-	validateLineFormat(t, lines[2], "line3")
+	validateLineFormat(t, lines[0], 1, "line1")
+	validateLineFormat(t, lines[1], 2, "")
+	validateLineFormat(t, lines[2], 3, "line3")
 }
 
 // Test ReadFile: File not found
@@ -144,7 +144,6 @@ func TestHandleWriteFile_NewFile(t *testing.T) {
 		t.Errorf("expected success, got: %s", resp.Message)
 	}
 
-	// Verify file was created
 	data, err := os.ReadFile(tmpFile)
 	if err != nil {
 		t.Fatalf("file not created: %v", err)
@@ -182,18 +181,14 @@ func TestHandleWriteFile_OverwriteFile(t *testing.T) {
 	}
 }
 
-// Test WriteFile: With valid hashes
-func TestHandleWriteFile_WithValidHashes(t *testing.T) {
-	tmpFile := createTempFile(t, "line1\nline2")
+// Test WriteFile: Content with pipe characters written verbatim
+func TestHandleWriteFile_PipeCharsVerbatim(t *testing.T) {
+	tmpFile := createTempFile(t, "")
 	defer os.Remove(tmpFile)
 
-	// Read file first to get hashes
-	readInput := models.ReadFileRequest{Path: tmpFile}
-	_, readResp, _ := HandleReadFile(context.Background(), nil, readInput)
-
-	// Use the returned content with hashes for write
-	writeInput := models.WriteFileRequest{Path: tmpFile, Content: readResp.Content}
-	toolResult, resp, err := HandleWriteFile(context.Background(), nil, writeInput)
+	content := "1|line one\n2|line two"
+	input := models.WriteFileRequest{Path: tmpFile, Content: content}
+	toolResult, resp, err := HandleWriteFile(context.Background(), nil, input)
 
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -204,29 +199,13 @@ func TestHandleWriteFile_WithValidHashes(t *testing.T) {
 	if !resp.Success {
 		t.Errorf("expected success: %s", resp.Message)
 	}
-}
 
-// Test WriteFile: With invalid hashes
-func TestHandleWriteFile_InvalidHash(t *testing.T) {
-	tmpFile := createTempFile(t, "line1\nline2")
-	defer os.Remove(tmpFile)
-
-	// Create content with invalid hash
-	badHash := "bad"
-	content := "1:" + badHash + "|line1\n2:dead|line2"
-	writeInput := models.WriteFileRequest{Path: tmpFile, Content: content}
-	toolResult, _, err := HandleWriteFile(context.Background(), nil, writeInput)
-
+	data, err := os.ReadFile(tmpFile)
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf("error reading file: %v", err)
 	}
-	if toolResult == nil {
-		t.Fatalf("expected error result")
-	}
-
-	errorText := toolResult.Content[0].(*mcp.TextContent).Text
-	if !strings.Contains(errorText, "HASH_MISMATCH") {
-		t.Errorf("expected HASH_MISMATCH error, got: %s", errorText)
+	if string(data) != content {
+		t.Errorf("expected verbatim content %q, got %q", content, string(data))
 	}
 }
 
@@ -253,14 +232,10 @@ func TestHandleEditFile_SingleLine(t *testing.T) {
 	tmpFile := createTempFile(t, "line1\nline2\nline3")
 	defer os.Remove(tmpFile)
 
-	// Hash of the actual content (not the formatted version)
-	startHash := hash.HashLine("line1")
-
-	// Edit first line
 	editInput := models.EditFileRequest{
 		Path:       tmpFile,
-		StartHash:  startHash,
-		EndHash:    startHash,
+		StartLine:  1,
+		EndLine:    1,
 		NewContent: "modified line1",
 	}
 	toolResult, resp, err := HandleEditFile(context.Background(), nil, editInput)
@@ -275,11 +250,10 @@ func TestHandleEditFile_SingleLine(t *testing.T) {
 		t.Errorf("expected success: %s", resp.Message)
 	}
 
-	// Verify file was modified
 	data, _ := os.ReadFile(tmpFile)
 	content := string(data)
 	if !strings.HasPrefix(content, "modified line1") {
-		t.Errorf("first line not modified correctly")
+		t.Errorf("first line not modified correctly: %s", content)
 	}
 }
 
@@ -288,15 +262,10 @@ func TestHandleEditFile_MultipleLines(t *testing.T) {
 	tmpFile := createTempFile(t, "line1\nline2\nline3\nline4")
 	defer os.Remove(tmpFile)
 
-	// Hash of the actual content (not the formatted version)
-	startHash := hash.HashLine("line1")
-	endHash := hash.HashLine("line3")
-
-	// Edit lines 1-3
 	editInput := models.EditFileRequest{
 		Path:       tmpFile,
-		StartHash:  startHash,
-		EndHash:    endHash,
+		StartLine:  1,
+		EndLine:    3,
 		NewContent: "new",
 	}
 	toolResult, resp, err := HandleEditFile(context.Background(), nil, editInput)
@@ -311,7 +280,6 @@ func TestHandleEditFile_MultipleLines(t *testing.T) {
 		t.Errorf("expected success: %s", resp.Message)
 	}
 
-	// Verify
 	data, _ := os.ReadFile(tmpFile)
 	content := string(data)
 	if !strings.Contains(content, "new") || !strings.Contains(content, "line4") {
@@ -319,48 +287,15 @@ func TestHandleEditFile_MultipleLines(t *testing.T) {
 	}
 }
 
-// Test EditFile: Hash mismatch
-func TestHandleEditFile_HashMismatch(t *testing.T) {
-	tmpFile := createTempFile(t, "line1\nline2\nline3")
-	defer os.Remove(tmpFile)
-
-	// Try to edit with wrong hash
-	editInput := models.EditFileRequest{
-		Path:       tmpFile,
-		StartHash:  "bad1",
-		EndHash:    "bad2",
-		NewContent: "new content",
-	}
-	toolResult, _, err := HandleEditFile(context.Background(), nil, editInput)
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if toolResult == nil {
-		t.Fatalf("expected error result")
-	}
-
-	errorText := toolResult.Content[0].(*mcp.TextContent).Text
-	if !strings.Contains(errorText, "HASH_MISMATCH") {
-		t.Errorf("expected HASH_MISMATCH error, got: %s", errorText)
-	}
-
-	// Verify file unchanged
-	data, _ := os.ReadFile(tmpFile)
-	if !strings.Contains(string(data), "line1") {
-		t.Errorf("file was modified despite hash mismatch")
-	}
-}
-
-// Test EditFile: Start hash not found
-func TestHandleEditFile_StartHashNotFound(t *testing.T) {
+// Test EditFile: Out of range
+func TestHandleEditFile_OutOfRange(t *testing.T) {
 	tmpFile := createTempFile(t, "line1\nline2\nline3")
 	defer os.Remove(tmpFile)
 
 	editInput := models.EditFileRequest{
 		Path:       tmpFile,
-		StartHash:  "nonexistent",
-		EndHash:    "alsobad",
+		StartLine:  2,
+		EndLine:    10,
 		NewContent: "new",
 	}
 	toolResult, _, err := HandleEditFile(context.Background(), nil, editInput)
@@ -373,8 +308,39 @@ func TestHandleEditFile_StartHashNotFound(t *testing.T) {
 	}
 
 	errorText := toolResult.Content[0].(*mcp.TextContent).Text
-	if !strings.Contains(errorText, "HASH_MISMATCH") {
-		t.Errorf("expected HASH_MISMATCH error")
+	if !strings.Contains(errorText, "INVALID_RANGE") {
+		t.Errorf("expected INVALID_RANGE error, got: %s", errorText)
+	}
+
+	data, _ := os.ReadFile(tmpFile)
+	if !strings.Contains(string(data), "line1") {
+		t.Errorf("file was modified despite out-of-range")
+	}
+}
+
+// Test EditFile: start_line greater than end_line
+func TestHandleEditFile_StartGreaterThanEnd(t *testing.T) {
+	tmpFile := createTempFile(t, "line1\nline2\nline3")
+	defer os.Remove(tmpFile)
+
+	editInput := models.EditFileRequest{
+		Path:       tmpFile,
+		StartLine:  3,
+		EndLine:    1,
+		NewContent: "new",
+	}
+	toolResult, _, err := HandleEditFile(context.Background(), nil, editInput)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if toolResult == nil {
+		t.Fatalf("expected error result")
+	}
+
+	errorText := toolResult.Content[0].(*mcp.TextContent).Text
+	if !strings.Contains(errorText, "INVALID_RANGE") {
+		t.Errorf("expected INVALID_RANGE error, got: %s", errorText)
 	}
 }
 
@@ -382,8 +348,8 @@ func TestHandleEditFile_StartHashNotFound(t *testing.T) {
 func TestHandleEditFile_FileNotFound(t *testing.T) {
 	editInput := models.EditFileRequest{
 		Path:       "/nonexistent/file.txt",
-		StartHash:  "hash1",
-		EndHash:    "hash2",
+		StartLine:  1,
+		EndLine:    1,
 		NewContent: "content",
 	}
 	toolResult, _, err := HandleEditFile(context.Background(), nil, editInput)
@@ -405,8 +371,8 @@ func TestHandleEditFile_FileNotFound(t *testing.T) {
 func TestHandleEditFile_EmptyPath(t *testing.T) {
 	editInput := models.EditFileRequest{
 		Path:       "",
-		StartHash:  "hash1",
-		EndHash:    "hash2",
+		StartLine:  1,
+		EndLine:    1,
 		NewContent: "content",
 	}
 	toolResult, _, err := HandleEditFile(context.Background(), nil, editInput)
@@ -424,47 +390,13 @@ func TestHandleEditFile_EmptyPath(t *testing.T) {
 	}
 }
 
-// Test EditFile: File changed since read (stale hashes)
-func TestHandleEditFile_StaleHashes(t *testing.T) {
-	tmpFile := createTempFile(t, "line1\nline2\nline3")
-	defer os.Remove(tmpFile)
-
-	// Hash of original content
-	startHash := hash.HashLine("line1")
-
-	// Modify file to invalidate hashes
-	os.WriteFile(tmpFile, []byte("changed\nline2\nline3"), 0644)
-
-	// Try to edit with old hash (which no longer exists in file)
-	editInput := models.EditFileRequest{
-		Path:       tmpFile,
-		StartHash:  startHash,
-		EndHash:    startHash,
-		NewContent: "new",
-	}
-	toolResult, _, err := HandleEditFile(context.Background(), nil, editInput)
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if toolResult == nil {
-		t.Fatalf("expected error result")
-	}
-
-	errorText := toolResult.Content[0].(*mcp.TextContent).Text
-	if !strings.Contains(errorText, "HASH_MISMATCH") {
-		t.Errorf("expected HASH_MISMATCH error for stale hashes")
-	}
-}
-
 // Integration Test: Write → Edit → Read workflow
 func TestIntegration_WriteEditRead(t *testing.T) {
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "integration_test.txt")
 
 	// Step 1: Write initial content
-	initialContent := "line1\nline2\nline3"
-	writeInput := models.WriteFileRequest{Path: tmpFile, Content: initialContent}
+	writeInput := models.WriteFileRequest{Path: tmpFile, Content: "line1\nline2\nline3"}
 	toolResult, resp, err := HandleWriteFile(context.Background(), nil, writeInput)
 
 	if err != nil {
@@ -477,31 +409,11 @@ func TestIntegration_WriteEditRead(t *testing.T) {
 		t.Fatalf("write not successful: %s", resp.Message)
 	}
 
-	// Step 2: Read file to get hashes
-	readInput := models.ReadFileRequest{Path: tmpFile}
-	toolResult, readResp, err := HandleReadFile(context.Background(), nil, readInput)
-
-	if err != nil {
-		t.Fatalf("read failed: %v", err)
-	}
-	if toolResult != nil {
-		t.Fatalf("expected no error on read")
-	}
-
-	readLines := strings.Split(readResp.Content, "\n")
-	if len(readLines) != 3 {
-		t.Fatalf("expected 3 lines from read, got %d", len(readLines))
-	}
-
-	// Extract hashes from read response
-	line1Hash := hash.HashLine("line1")
-	line2Hash := hash.HashLine("line2")
-
-	// Step 3: Edit line 1 and 2
+	// Step 2: Edit lines 1-2
 	editInput := models.EditFileRequest{
 		Path:       tmpFile,
-		StartHash:  line1Hash,
-		EndHash:    line2Hash,
+		StartLine:  1,
+		EndLine:    2,
 		NewContent: "modified1\nmodified2",
 	}
 	toolResult, editResp, err := HandleEditFile(context.Background(), nil, editInput)
@@ -516,35 +428,32 @@ func TestIntegration_WriteEditRead(t *testing.T) {
 		t.Fatalf("edit not successful: %s", editResp.Message)
 	}
 
-	// Step 4: Read file again and validate changes
-	toolResult, finalResp, err := HandleReadFile(context.Background(), nil, readInput)
+	// Step 3: Read and validate
+	readInput := models.ReadFileRequest{Path: tmpFile}
+	toolResult, readResp, err := HandleReadFile(context.Background(), nil, readInput)
 
 	if err != nil {
-		t.Fatalf("final read failed: %v", err)
+		t.Fatalf("read failed: %v", err)
 	}
 	if toolResult != nil {
-		t.Fatalf("expected no error on final read")
+		t.Fatalf("expected no error on read")
 	}
 
-	finalLines := strings.Split(finalResp.Content, "\n")
+	finalLines := strings.Split(readResp.Content, "\n")
 	if len(finalLines) != 3 {
-		t.Fatalf("expected 3 lines in final read, got %d", len(finalLines))
+		t.Fatalf("expected 3 lines, got %d", len(finalLines))
 	}
 
-	// Validate the edits took effect
-	validateLineFormat(t, finalLines[0], "modified1")
-	validateLineFormat(t, finalLines[1], "modified2")
-	validateLineFormat(t, finalLines[2], "line3") // line3 should be unchanged
+	validateLineFormat(t, finalLines[0], 1, "modified1")
+	validateLineFormat(t, finalLines[1], 2, "modified2")
+	validateLineFormat(t, finalLines[2], 3, "line3")
 
-	// Validate the content
-	finalData, err := os.ReadFile(tmpFile)
+	data, err := os.ReadFile(tmpFile)
 	if err != nil {
 		t.Fatalf("failed to read file directly: %v", err)
 	}
-
-	expectedFinalContent := "modified1\nmodified2\nline3"
-	if string(finalData) != expectedFinalContent {
-		t.Errorf("expected final content %q, got %q", expectedFinalContent, string(finalData))
+	if string(data) != "modified1\nmodified2\nline3" {
+		t.Errorf("unexpected final content: %q", string(data))
 	}
 }
 
@@ -563,28 +472,19 @@ func createTempFile(t *testing.T, content string) string {
 	return tmpFile.Name()
 }
 
-// Helper: Validate line format "linenum:hash|content"
-func validateLineFormat(t *testing.T, formatted, expectedContent string) {
-	// Extract hash and content
+// Helper: Validate line format "linenum|content"
+func validateLineFormat(t *testing.T, formatted string, expectedLineNum int, expectedContent string) {
+	t.Helper()
 	parts := strings.SplitN(formatted, "|", 2)
 	if len(parts) != 2 {
-		t.Errorf("invalid format: %s", formatted)
+		t.Errorf("invalid format (missing |): %q", formatted)
 		return
 	}
 
-	hashPart := parts[0]
-	actualContent := parts[1]
-
-	if actualContent != expectedContent {
-		t.Errorf("expected content %q, got %q", expectedContent, actualContent)
+	if parts[0] != fmt.Sprintf("%d", expectedLineNum) {
+		t.Errorf("expected line number %d, got %q", expectedLineNum, parts[0])
 	}
-
-	// Validate hash matches content
-	expectedHash := hash.HashLine(expectedContent)
-	colonIdx := strings.LastIndex(hashPart, ":")
-	actualHash := hashPart[colonIdx+1:]
-
-	if actualHash != expectedHash {
-		t.Errorf("hash mismatch, expected %q, got %q", expectedHash, actualHash)
+	if parts[1] != expectedContent {
+		t.Errorf("expected content %q, got %q", expectedContent, parts[1])
 	}
 }

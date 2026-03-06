@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,7 +10,6 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"awesomeProject/pkg/hash"
 	pkglog "awesomeProject/pkg/log"
 	"awesomeProject/pkg/models"
 )
@@ -37,13 +37,10 @@ func HandleReadFile(ctx context.Context, req *mcp.CallToolRequest, input models.
 		return errorResult(ctx, "READ_FAILED", "read failed: "+err.Error()), models.ReadFileResponse{}, nil
 	}
 
-	// Format content with hashes
 	lines := strings.Split(string(data), "\n")
-	var formattedLines []string
+	formattedLines := make([]string, len(lines))
 	for i, line := range lines {
-		lineNum := i + 1
-		formatted := hash.FormatLineWithHash(lineNum, line)
-		formattedLines = append(formattedLines, formatted)
+		formattedLines[i] = fmt.Sprintf("%d|%s", i+1, line)
 	}
 	content := strings.Join(formattedLines, "\n")
 
@@ -71,48 +68,13 @@ func HandleWriteFile(ctx context.Context, req *mcp.CallToolRequest, input models
 		return errorResult(ctx, "INVALID_PATH", "invalid path: "+err.Error()), models.WriteFileResponse{}, nil
 	}
 
-	logger.Debug(ctx, "Path validation", "resolved", "success")
-
-	// If content has hashes, validate and strip them
-	lines := strings.Split(input.Content, "\n")
-	var actualLines []string
-	for _, line := range lines {
-		if strings.Contains(line, "|") {
-			// Extract hash and validate
-			extractedHash, err := hash.ExtractHashFromLine(line)
-			if err != nil {
-				return errorResult(ctx, "INVALID_REQUEST", "invalid hash format: "+err.Error()), models.WriteFileResponse{}, nil
-			}
-
-			parts := strings.SplitN(line, "|", 2)
-			if len(parts) != 2 {
-				return errorResult(ctx, "INVALID_REQUEST", "invalid line format"), models.WriteFileResponse{}, nil
-			}
-
-			lineContent := parts[1]
-
-			// Validate hash
-			if !hash.ValidateHash(lineContent, extractedHash) {
-				return errorResult(ctx, "HASH_MISMATCH", "hash mismatch on line"), models.WriteFileResponse{}, nil
-			}
-
-			actualLines = append(actualLines, lineContent)
-		} else {
-			actualLines = append(actualLines, line)
-		}
-	}
-
-	content := strings.Join(actualLines, "\n")
-
-	logger.Debug(ctx, "Hash validation", "result", "success")
-
 	// Write file
-	if err := os.WriteFile(absPath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(absPath, []byte(input.Content), 0644); err != nil {
 		return errorResult(ctx, "WRITE_FAILED", "write failed: "+err.Error()), models.WriteFileResponse{}, nil
 	}
 
 	logger.Info(ctx, "File write completed",
-		"bytes_written", len(content),
+		"bytes_written", len(input.Content),
 		pkglog.Duration(time.Since(start)))
 
 	resp := models.WriteFileResponse{
@@ -148,48 +110,12 @@ func HandleEditFile(ctx context.Context, req *mcp.CallToolRequest, input models.
 
 	lines := strings.Split(string(data), "\n")
 
-	// Format lines with hashes to match what was returned to the user
-	var formattedLines []string
-	for i, line := range lines {
-		formatted := hash.FormatLineWithHash(i+1, line)
-		formattedLines = append(formattedLines, formatted)
+	startIdx := input.StartLine - 1
+	endIdx := input.EndLine - 1
+
+	if input.StartLine < 1 || input.EndLine < input.StartLine || input.EndLine > len(lines) {
+		return errorResult(ctx, "INVALID_RANGE", fmt.Sprintf("invalid range %d-%d for file with %d lines", input.StartLine, input.EndLine, len(lines))), models.EditFileResponse{}, nil
 	}
-
-	// Find start and end line indices by hash
-	var startIdx, endIdx int
-	found := false
-	for i, line := range lines {
-		lineHash := hash.HashLine(line)
-		if lineHash == input.StartHash {
-			startIdx = i
-			found = true
-			break
-		}
-	}
-
-	if !found {
-		logger.Debug(ctx, "Start hash lookup", "line_count", len(lines), "result", "not_found")
-		return errorResult(ctx, "HASH_MISMATCH", "start hash not found"), models.EditFileResponse{}, nil
-	}
-
-	logger.Debug(ctx, "Start hash lookup", "result", "found", "line_num", startIdx+1)
-
-	found = false
-	for i := startIdx; i < len(lines); i++ {
-		lineHash := hash.HashLine(lines[i])
-		if lineHash == input.EndHash {
-			endIdx = i
-			found = true
-			break
-		}
-	}
-
-	if !found {
-		logger.Debug(ctx, "End hash lookup", "range_start", startIdx, "range_end", len(lines), "result", "not_found")
-		return errorResult(ctx, "HASH_MISMATCH", "end hash not found"), models.EditFileResponse{}, nil
-	}
-
-	logger.Debug(ctx, "End hash lookup", "result", "found", "line_num", endIdx+1)
 
 	// Replace lines
 	newLines := strings.Split(input.NewContent, "\n")

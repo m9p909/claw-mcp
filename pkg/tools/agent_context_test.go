@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+
 	"awesomeProject/pkg/models"
 )
 

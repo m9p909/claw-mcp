@@ -7,12 +7,12 @@ type ReadFileRequest struct {
 }
 
 type ReadFileResponse struct {
-	Content string `json:"content" jsonschema:"description,File content with hashes (format: linenum:hash|content)"`
+	Content string `json:"content" jsonschema:"description,File content with line numbers (format: linenum|content)"`
 }
 
 type WriteFileRequest struct {
 	Path    string `json:"path" jsonschema:"description,Absolute file path to write"`
-	Content string `json:"content" jsonschema:"description,File content (can include hashes from previous read)"`
+	Content string `json:"content" jsonschema:"description,File content to write verbatim"`
 }
 
 type WriteFileResponse struct {
@@ -22,8 +22,8 @@ type WriteFileResponse struct {
 
 type EditFileRequest struct {
 	Path       string `json:"path" jsonschema:"description,Absolute file path to edit"`
-	StartHash  string `json:"start_hash" jsonschema:"description,Hash of first line to replace"`
-	EndHash    string `json:"end_hash" jsonschema:"description,Hash of last line to replace"`
+	StartLine  int    `json:"start_line" jsonschema:"description,1-based line number of first line to replace"`
+	EndLine    int    `json:"end_line" jsonschema:"description,1-based line number of last line to replace"`
 	NewContent string `json:"new_content" jsonschema:"description,Replacement content (can span multiple lines)"`
 }
 
@@ -245,7 +245,6 @@ type SearchFileRequest struct {
 type SearchFileResult struct {
 	File    string `json:"file" jsonschema:"description,File path containing match"`
 	Line    int    `json:"line" jsonschema:"description,Line number (0 for binary files)"`
-	Hash    string `json:"hash" jsonschema:"description,CRC32 hash of line content"`
 	Content string `json:"content" jsonschema:"description,Matched line content"`
 }
 
